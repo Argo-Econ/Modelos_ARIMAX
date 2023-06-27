@@ -43,24 +43,24 @@ Datos_ent2_ts2 <- xts(Datos_ent2[,-1]
 #------------------------------------------------------------------------------#
 
 # Objeto ts
-Base_modelo_ts <- ts.union(Datos_ent1_ts1[,4],Datos_ent2_ts1)
+Base_modelo_ts <- ts.union(Datos_ent1_ts1[ , 1],Datos_ent2_ts1)
 tail(Base_modelo_ts)
-colnames(Base_modelo_ts) <- c("Chile","Brent","IP_Index","IPC_EEUU")
+colnames(Base_modelo_ts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_ts)
 
-Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],19)
+Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],13)
 
 Base_modelo_dep_ts <- Base_modelo_ts %>% na.omit()
 head(Base_modelo_dep_ts)
 tail(Base_modelo_dep_ts)  
 
 # Base modelo con objetos xts (reto)
-Base_modelo_xts <- cbind.xts(Datos_ent1_ts2[,4],Datos_ent2_ts2)
+Base_modelo_xts <- cbind.xts(Datos_ent1_ts2[,1],Datos_ent2_ts2)
 tail(Base_modelo_xts)
-colnames(Base_modelo_xts) <- c("Chile","Brent","IP_Index","IPC_EEUU")
+colnames(Base_modelo_xts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_xts)
 
-Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],19)
+Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],13)
 
 Base_modelo_dep_xts <- Base_modelo_xts %>% na.omit()
 head(Base_modelo_dep_xts)
@@ -68,7 +68,7 @@ tail(Base_modelo_dep_xts)
 
 
 
-# Especificación ----
+# Identificación ----
 
 ## Elementos gráficos
 #------------------------------------------------------------------------------#
@@ -81,24 +81,24 @@ ts_plot(Base_modelo_dep_xts
         ,slider = T)
 
 # Comportamiento estacional de la variable objetivo
-ts_seasonal(Base_modelo_dep_xts$Chile, type = "all")
-ts_cor(Base_modelo_dep_xts$Chile, lag.max = 60) # con objetos xts no funciona
+ts_seasonal(Base_modelo_dep_xts$Colombia, type = "all")
+ts_cor(Base_modelo_dep_xts$Colombia, lag.max = 60) # con objetos xts no funciona
 ts_cor(Base_modelo_dep_ts[,1], lag.max = 60)    # funciona con objetos ts
 
 
 windows()
-tsdisplay(Base_modelo_dep_ts[,1], main = "Indice accionario Chile"
-          , xlab = "Fecha", ylab = "IPSA")
+tsdisplay(Base_modelo_dep_ts[,1], main = "Indice accionario Colombia"
+          , xlab = "Fecha", ylab = "Colcap")
 
 ts_lags(Base_modelo_dep_ts[,1], lags = 1:18)
-ts_lags(Base_modelo_dep_xts$Chile, lags = 1:18)
+ts_lags(Base_modelo_dep_xts$Colombia, lags = 1:18)
 
-
+adf.test(x = Base_modelo_dep_ts[,1],alternative = "stationary")
 
 ## Transformación Box-Cox ----
 #------------------------------------------------------------------------------#
 
-boxCox(lm(Base_modelo_dep_xts$Chile~1),    # regresión var. de interes como regresor constante
+boxCox(lm(Base_modelo_dep_xts$Colombia~1),    # regresión var. de interes como regresor constante
        lambda = seq(-3, 3, 1/100), # secuencia de valores para lambda
        plotit = TRUE,  # Crear el emento grafico de contraste
        eps = 1/50,     # tolerancia sobre valor de lambda
@@ -106,7 +106,7 @@ boxCox(lm(Base_modelo_dep_xts$Chile~1),    # regresión var. de interes como reg
        ylab = "log-Likelihood",
        main ="Valor de lambda")
 
-lambda_chile <- BoxCox.lambda(Base_modelo_dep_xts$Chile, method = "loglik")
+lambda_colombia <- BoxCox.lambda(Base_modelo_dep_xts$Colombia, method = "loglik")
 lambda_Brent <- BoxCox.lambda(Base_modelo_dep_xts$Brent, method = "loglik")
 lambda_IP_index <- BoxCox.lambda(Base_modelo_dep_xts$IP_Index, method = "loglik")
 lambda_IPC_EEUU <- BoxCox.lambda(Base_modelo_dep_xts$IPC_EEUU, method = "loglik")
@@ -116,18 +116,18 @@ lamdas_buff <- apply(Base_modelo_dep_xts, 2, function(x)  BoxCox.lambda(x,method
 
 
 # serie_transformada Box-Cox manual
-Chile_BoxCox <- BoxCox(Base_modelo_dep_xts$Chile,lambda = lambda_chile)
+Colombia_BoxCox <- BoxCox(Base_modelo_dep_xts$Colombia,lambda = lamdas_buff[1])
 Brent_BoxCox <- BoxCox(Base_modelo_dep_xts$Brent,lambda = lambda_Brent)
 IP_Index_BoxCox <- BoxCox(Base_modelo_dep_xts$IP_Index,lambda = lambda_IP_index)
 IPC_EEUU_BoxCox <- BoxCox(Base_modelo_dep_xts$IPC_EEUU,lambda = lambda_IPC_EEUU)
 
-Base_modelo_dep_xts_BoxCox <- cbind.xts(Base_modelo_dep_xts,Chile_BoxCox$Chile
+Base_modelo_dep_xts_BoxCox <- cbind.xts(Base_modelo_dep_xts,Colombia_BoxCox$Colombia
                                  ,Brent_BoxCox$Brent,IP_Index_BoxCox$IP_Index
                                  ,IPC_EEUU_BoxCox$IPC_EEUU)
 
 names(Base_modelo_dep_xts_BoxCox)
-colnames(Base_modelo_dep_xts_BoxCox) <- c("Chile","Brent","IP_Index","IPC_EEUU"
-                                          ,"Chile_BoxCox","Brent_BoxCox"
+colnames(Base_modelo_dep_xts_BoxCox) <- c("Colombia","Brent","IP_Index","IPC_EEUU"
+                                          ,"Colombia_BoxCox","Brent_BoxCox"
                                           ,"IP_Index_BoxCox","IPC_EEUU_BoxCox")
 
 tail(Base_modelo_dep_xts_BoxCox)
@@ -140,7 +140,7 @@ Base_modelo_dep_xts_bx <- apply(Base_modelo_dep_xts
 
 
 # Mensajes:
-# la transformación en BoxCox debe mirar se con cuidado evaluando su ajuste
+# la transformación en BoxCox debe mirarse con cuidado evaluando su ajuste
 # entérminos de la varianza.
 # Mayor detalle ver: https://onlinestatbook.com/2/transformations/box-cox.html
 # -----------------------------------------------------------------------------#
@@ -149,8 +149,8 @@ Base_modelo_dep_xts_bx <- apply(Base_modelo_dep_xts
 class(Base_modelo_dep_xts_bx)
 head(Base_modelo_dep_xts)
 
-f_ini <- as.Date("1993-09-01")
-f_end <- as.Date("2022-06-1")
+f_ini <- as.Date("1991-01-01")
+f_end <- as.Date("2022-11-1")
 fechas <- seq(f_ini, f_end, by = "month")
 
 Base_modelo_dep_xts_bx <- xts(Base_modelo_dep_xts_bx,order.by = fechas)
@@ -168,7 +168,7 @@ var(Base_modelo_dep_xts[,1])
 var(Base_modelo_dep_xts_bx[,1])
 
 # Comprobar que la serie se estacionaria (prueba de raiz unitaria)
-adf.test(Base_modelo_dep_xts[,1]) # sobre el indice de chile la H0 no se rechaza
+adf.test(Base_modelo_dep_xts[,1]) # sobre el indice de Colombia la H0 no se rechaza
 adf.test(Base_modelo_dep_xts_bx[,1]) # sobre chile boxcox h0 no se rechaza
 
 
@@ -177,9 +177,9 @@ Base_modelo_dep_xts_bx_diff <- Base_modelo_dep_xts_bx %>% diff() %>% na.omit()
 tail(Base_modelo_dep_xts_bx_diff)
 
 
-# vuelo a testear estacionariedad
-adf.test(Base_modelo_dep_xts_bx_diff[,1]) # Se rechaza H0 -> serie estacionaria I(1)
-                                          # se aplicó una diferencia, entonces d=1
+# vuelvo a testear estacionariedad
+adf.test(Base_modelo_dep_xts_bx_diff[,1],k=1) # Se rechaza H0 -> serie estacionaria I(1)
+                                              # se aplicó una diferencia, entonces d=1
 kpss.test(Base_modelo_dep_xts_bx_diff[,1]) # H0: serie estacionaria
 pp.test(Base_modelo_dep_xts_bx_diff[,1])   # H0: serie no estacionaria
 
@@ -235,8 +235,8 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 
 
 # Conclusion:
-# 1. existen unos posibles modelos a estimar
-#     MA(1), ARMA(1,1), ARMA(1,2)
+# 1. existen unos posibles candidatos a modelar
+#     MA(1), ARMA(3,4), ARMA(6,7)
 
 
 
@@ -244,9 +244,9 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 # -----------------------------------------------------------------------------#
 
 ## modelo 1 ----
-mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,1))
+mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,1),method = "CSS")
 summary(mod1)
-
+lmtest::coeftest(mod1)
 
 ## Carga de función eval residuales ----
 source("Funciones/Funcion_Prueba_Residuales.r")
@@ -259,7 +259,7 @@ windows()
 prueba_residuales(mod1$residuals)
 
 ## modelo 2 ----
-mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(1,0,2))
+mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,4), method = "CSS")
 summary(mod2)
 
 ### Chequeo mod2 ----
@@ -284,10 +284,10 @@ prueba_residuales(mod3$residuals)
 
 
 ## modelo 4 niveles y exogenas ----
-mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,1,2)
+mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,2,2)    # ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)
               ,xreg = log(Base_modelo_dep_ts[,-1]))
 summary(mod4)
-
+"ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)"
 ### Chequeo mod4 niveles y exogenas ----
 windows()
 checkresiduals(mod4)
@@ -297,11 +297,11 @@ prueba_residuales(mod4$residuals)
 
 
 ## modelo 5 ajuste manual ----
-mod5 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,1,2)
-              ,seasonal = c(1,0,1)
+mod5 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,2,2)
+              ,seasonal = c(1,1,0)    # Seasonal (P,D,Q)
               ,xreg = log(Base_modelo_dep_ts[,-1]))
 summary(mod5)
-
+lmtest::coeftest(mod5)
 ### Chequeo modelo 5 ajuste ----
 windows()
 checkresiduals(mod5)
@@ -343,10 +343,10 @@ prueba_residuales(mod6$residuals)
 
 ts_plot(log(Base_modelo_dep_ts[,1]))
 
-outliers_chile <- tso(log(Base_modelo_dep_ts[,1])
+outliers_colombia <- tso(log(Base_modelo_dep_ts[,1])
                     , types = c("TC", "AO", "LS") )
 windows()
-plot(outliers_chile)
+plot(outliers_colombia)
 
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
@@ -370,11 +370,11 @@ ts_plot(tc_all, title = "Cambio transitorio")
 
 
 # Outliers con serie de trabajo ----
-outliers_chile
-outliers_chile$outliers$coefhat
+outliers_colombia
+outliers_colombia$outliers$coefhat
 
 # Fechas en las que ocurrieron los outlier
-outliers_idx <- outliers_chile$outliers$ind
+outliers_idx <- outliers_colombia$outliers$ind
 
 # Creación de los outliers
 n <- length(Base_modelo_dep_ts[,1])
@@ -389,20 +389,20 @@ outliers_gral <- cbind(outlier1_tc,outlier2_tc)
 ts_plot(as.ts(outliers_gral), type="multiple")
 
 # Visualización de serie original y de la intervención
-comparativo <- cbind("Intervenida"=outliers_chile$yadj,"Original"=log(Base_modelo_dep_ts[,1]))
+comparativo <- cbind("Intervenida"=outliers_colombia$yadj,"Original"=log(Base_modelo_dep_ts[,1]))
 ts_plot(as.ts(comparativo))
 
 # /------ fin intervencion --------------------------------------------
 
 head(Base_modelo_dep_ts)
-Chile_interv <- ts(outliers_chile$yadj, start = c(1993,9)
+Colombia_interv <- ts(outliers_colombia$yadj, start = c(1991,1)
                    ,frequency = 12)
 
-Base_modelo_dep_ts_log <- ts.union(log(Base_modelo_dep_ts),Chile_interv)
+Base_modelo_dep_ts_log <- ts.union(log(Base_modelo_dep_ts),Colombia_interv)
 View(Base_modelo_dep_ts_log)
 
-colnames(Base_modelo_dep_ts_log) <- c("Chile","Brent","IP_Index"
-                                      ,"IPC_EEUU","Chile_interv")
+colnames(Base_modelo_dep_ts_log) <- c("Colombia","Brent","IP_Index"
+                                      ,"IPC_EEUU","Colombia_interv")
 
 
 ## modelo 7 intervenida ----
@@ -425,7 +425,7 @@ prueba_residuales(mod7$residuals)
 
 
 ## Pronosticos libres sin exogenas ----
-fore_mod1 <- forecast(mod1, h=19)
+fore_mod1 <- forecast(mod1, h=13)
 autoplot(fore_mod1)
 
 fore_mod2 <- forecast(mod2, h=19)
