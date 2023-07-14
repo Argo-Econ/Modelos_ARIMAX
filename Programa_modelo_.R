@@ -1,7 +1,6 @@
 #------------------------------------------------------------------------------#
 # Desarrollo de la met. Box Jenkings ----
 ## Modelos ARIMA media condicional
-## Modelo GARCH para la volatilidad
 ## Arturo Yesid Gonzalez ----
 # ***************************************************************************** ----
 
@@ -10,21 +9,29 @@ require(pacman) # library(pacman)
 
 p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
        , tseries, TSA, tsoutliers, GGally, xts, ggplot2, dplyr
-       , MASS, nortest, nortest, FinTS, rugarch)
+       , MASS, nortest, nortest, FinTS, rugarch, Metrics )
 
 
 # Importacion datos ----
 #------------------------------------------------------------------------------#
 Datos_ent1 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Acciones",range = "a4:bq399"
+                        ,sheet = "Acciones",range = "a4:bq406"
                         ,col_names = T)
 
 tail(Datos_ent1)
 
 Datos_ent2 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Exogenas",range = "a3:d411"
+                        ,sheet = "Exogenas",range = "a3:d423"
                         ,col_names = T)
 tail(Datos_ent2)
+
+Datos_ent3 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
+                        ,sheet = "Monedas",range = "a4:w286"
+                        ,col_names = T)
+
+tail(Datos_ent3)
+
+
 
 # Definicion de objetos de serie de tiempo ----
 #------------------------------------------------------------------------------#
@@ -39,28 +46,34 @@ Datos_ent2_ts1 <- ts(Datos_ent2[,-1],start = c(1990,1),frequency = 12)
 Datos_ent2_ts2 <- xts(Datos_ent2[,-1]
                       ,order.by = as.Date(Datos_ent2$Fecha))
 
+# Monedas
+Datos_ent3_ts1 <- ts(Datos_ent3[,-c(1:3)],start = c(2000,1),frequency = 12)
+Datos_ent3_ts2 <- xts(Datos_ent3[,-c(1:3)]
+                      ,order.by = as.Date(Datos_ent3$Fecha))
+
+
 ## Creacion de la base de modelacion ----
 #------------------------------------------------------------------------------#
 
 # Objeto ts
-Base_modelo_ts <- ts.union(Datos_ent1_ts1[ , 1],Datos_ent2_ts1)
+Base_modelo_ts <- ts.union(Datos_ent3_ts1[ , 1],Datos_ent2_ts1)
 tail(Base_modelo_ts)
 colnames(Base_modelo_ts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_ts)
 
-Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],13)
+Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],19)
 
 Base_modelo_dep_ts <- Base_modelo_ts %>% na.omit()
 head(Base_modelo_dep_ts)
 tail(Base_modelo_dep_ts)  
 
 # Base modelo con objetos xts (reto)
-Base_modelo_xts <- cbind.xts(Datos_ent1_ts2[,1],Datos_ent2_ts2)
+Base_modelo_xts <- cbind.xts(Datos_ent3_ts2[,1],Datos_ent2_ts2)
 tail(Base_modelo_xts)
 colnames(Base_modelo_xts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_xts)
 
-Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],13)
+Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],19)
 
 Base_modelo_dep_xts <- Base_modelo_xts %>% na.omit()
 head(Base_modelo_dep_xts)
@@ -87,8 +100,8 @@ ts_cor(Base_modelo_dep_ts[,1], lag.max = 60)    # funciona con objetos ts
 
 
 windows()
-tsdisplay(Base_modelo_dep_ts[,1], main = "Indice accionario Colombia"
-          , xlab = "Fecha", ylab = "Colcap")
+tsdisplay(Base_modelo_dep_ts[,1], main = "Tasa de Cambio Peso-Dólar"
+          , xlab = "Fecha", ylab = "TRM")
 
 ts_lags(Base_modelo_dep_ts[,1], lags = 1:18)
 ts_lags(Base_modelo_dep_xts$Colombia, lags = 1:18)
@@ -137,11 +150,11 @@ tail(Base_modelo_dep_xts_BoxCox)
 Base_modelo_dep_xts_bx <- apply(Base_modelo_dep_xts
                                 , 2, function(y) BoxCox(y
                                                         ,BoxCox.lambda(y,method = "loglik")) )
-
+ts_plot(Base_modelo_dep_xts_BoxCox)
 
 # Mensajes:
 # la transformación en BoxCox debe mirarse con cuidado evaluando su ajuste
-# entérminos de la varianza.
+# en términos de la varianza.
 # Mayor detalle ver: https://onlinestatbook.com/2/transformations/box-cox.html
 # -----------------------------------------------------------------------------#
 
@@ -149,8 +162,8 @@ Base_modelo_dep_xts_bx <- apply(Base_modelo_dep_xts
 class(Base_modelo_dep_xts_bx)
 head(Base_modelo_dep_xts)
 
-f_ini <- as.Date("1991-01-01")
-f_end <- as.Date("2022-11-1")
+f_ini <- as.Date("2000-01-01")
+f_end <- as.Date("2023-06-1")
 fechas <- seq(f_ini, f_end, by = "month")
 
 Base_modelo_dep_xts_bx <- xts(Base_modelo_dep_xts_bx,order.by = fechas)
@@ -236,7 +249,7 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 
 # Conclusion:
 # 1. existen unos posibles candidatos a modelar
-#     MA(1), ARMA(3,4), ARMA(6,7)
+#     MA(1) - ARMA(0,1) , ARMA(3,3), ARMA(8,6)
 
 
 
@@ -259,7 +272,7 @@ windows()
 prueba_residuales(mod1$residuals)
 
 ## modelo 2 ----
-mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,4), method = "CSS")
+mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,3), method = "CSS-ML")
 summary(mod2)
 
 ### Chequeo mod2 ----
@@ -271,43 +284,43 @@ prueba_residuales(mod2$residuals)
 
 
 ## modelo 3 con exogenas ----
-mod3 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(1,0,2)
+mod2a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,3)
               ,xreg = Base_modelo_dep_ts_dlx[,-1])
-summary(mod3)
+summary(mod2a)
 
 ### Chequeo mod3 con exogenas ----
 windows()
-checkresiduals(mod3)
+checkresiduals(mod2a)
 
 windows()
-prueba_residuales(mod3$residuals)
+prueba_residuales(mod2a$residuals)
 
 
 ## modelo 4 niveles y exogenas ----
-mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,2,2)    # ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)
+mod3b <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(3,1,3)    # ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)
               ,xreg = log(Base_modelo_dep_ts[,-1]))
-summary(mod4)
-"ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)"
+summary(mod3b)
+"ndiffs(log(Base_modelo_dep_ts[,1])) para saber que colocar en d c(x,d,x)"
 ### Chequeo mod4 niveles y exogenas ----
 windows()
-checkresiduals(mod4)
+checkresiduals(mod3b)
 
 windows()
 prueba_residuales(mod4$residuals)
 
 
-## modelo 5 ajuste manual ----
-mod5 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(1,2,2)
-              ,seasonal = c(1,1,0)    # Seasonal (P,D,Q)
+## modelo 4 ajuste manual ----
+mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(6,1,8)
+              ,seasonal = c(0,0,0)    # Seasonal (P,D,Q)
               ,xreg = log(Base_modelo_dep_ts[,-1]))
-summary(mod5)
-lmtest::coeftest(mod5)
+summary(mod4)
+lmtest::coeftest(mod4)
 ### Chequeo modelo 5 ajuste ----
 windows()
-checkresiduals(mod5)
+checkresiduals(mod4)
 
 windows()
-prueba_residuales(mod5$residuals)
+prueba_residuales(mod4$residuals)
 
 
 ## modelo 6 auto.arima en lx ----
@@ -343,14 +356,14 @@ prueba_residuales(mod6$residuals)
 
 ts_plot(log(Base_modelo_dep_ts[,1]))
 
-outliers_colombia <- tso(log(Base_modelo_dep_ts[,1])
+outliers_colombia <- tso((Base_modelo_dep_ts[,1])
                     , types = c("TC", "AO", "LS") )
 windows()
 plot(outliers_colombia)
 
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
-tc[319] <- 0.215
+tc[110] <- 1
 
 # cambio de nivel
 ls <- stats::filter(tc, filter = 1, method = "recursive")
@@ -379,7 +392,7 @@ outliers_idx <- outliers_colombia$outliers$ind
 # Creación de los outliers
 n <- length(Base_modelo_dep_ts[,1])
 outlier1_tc1 <- outliers("TC", outliers_idx[1])
-outlier2_tc2 <- outliers("TC", outliers_idx[2])
+outlier2_tc2 <- outliers("LS", outliers_idx[2])
 
 outlier1_tc <- outliers.effects(outlier1_tc1, n)
 outlier2_tc <- outliers.effects(outlier2_tc2, n)
@@ -389,16 +402,16 @@ outliers_gral <- cbind(outlier1_tc,outlier2_tc)
 ts_plot(as.ts(outliers_gral), type="multiple")
 
 # Visualización de serie original y de la intervención
-comparativo <- cbind("Intervenida"=outliers_colombia$yadj,"Original"=log(Base_modelo_dep_ts[,1]))
+comparativo <- cbind("Intervenida"=outliers_colombia$yadj,"Original"=(Base_modelo_dep_ts[,1]))
 ts_plot(as.ts(comparativo))
 
 # /------ fin intervencion --------------------------------------------
 
 head(Base_modelo_dep_ts)
-Colombia_interv <- ts(outliers_colombia$yadj, start = c(1991,1)
+Colombia_interv <- ts(outliers_colombia$yadj, start = c(2000,1)
                    ,frequency = 12)
 
-Base_modelo_dep_ts_log <- ts.union(log(Base_modelo_dep_ts),Colombia_interv)
+Base_modelo_dep_ts_log <- ts.union((Base_modelo_dep_ts),Colombia_interv)
 View(Base_modelo_dep_ts_log)
 
 colnames(Base_modelo_dep_ts_log) <- c("Colombia","Brent","IP_Index"
@@ -425,7 +438,7 @@ prueba_residuales(mod7$residuals)
 
 
 ## Pronosticos libres sin exogenas ----
-fore_mod1 <- forecast(mod1, h=13)
+fore_mod1 <- forecast(mod1, h=19)
 autoplot(fore_mod1)
 
 fore_mod2 <- forecast(mod2, h=19)
@@ -437,268 +450,18 @@ Base_exo_pronos_ts
 fore_mod3 <- forecast(mod3, xreg = diff(log(Base_exo_pronos_ts)))
 autoplot(fore_mod3)
 
+fore_mod2a <- forecast(mod2a, xreg = log(Base_exo_pronos_ts))
+autoplot(fore_mod2a)
+
+fore_mod3b <- forecast(mod3b, xreg = log(Base_exo_pronos_ts))
+autoplot(fore_mod3b)
+
 fore_mod4 <- forecast(mod4, xreg = log(Base_exo_pronos_ts))
 autoplot(fore_mod4)
-
-fore_mod5 <- forecast(mod5, xreg = log(Base_exo_pronos_ts))
-autoplot(fore_mod5)
-
-fore_mod6 <- forecast(mod6, xreg = log(Base_exo_pronos_ts))
-autoplot(fore_mod6)
 
 fore_mod7 <- forecast(mod7, xreg = log(Base_exo_pronos_ts))
 autoplot(fore_mod7)
 
-
-# /------------------------------------------------------------------  ---- 
-
-
-
-# -----------------------------------------------------------------------------#
-# Modelar la varianza ----
-# -----------------------------------------------------------------------------#
-
-# graficar los residuales absolutos y al cuadrado
-base_residuales <- cbind("residuales"=mod7$residuals
-                         ,"resid_sqrt"=mod7$residuals^2
-                         ,"resid_abs"=abs(mod7$residuals))
-
-## Elementos graficos residuales ----
-ts_plot(base_residuales
-        ,title = "Residuales Modelo 7"
-        ,type = "multiple")
-
-windows()
-tsdisplay(base_residuales[,1]
-          , main = "residuales") # residuales sin transformar
-
-windows()
-tsdisplay(base_residuales[,2]
-          , main = "Resisuales al cuadrado") # residuales al cuadrado
-
-windows()
-tsdisplay(base_residuales[,3]
-          , main = "residuales absolutos") # residuales absolutos
-
-
-## Efectos ARCH ----
-ArchTest(base_residuales[,1], lags = 12)
-ArchTest(base_residuales[,2], lags = 12)
-ArchTest(base_residuales[,3], lags = 12)
-
-McLeod.Li.test(y=base_residuales[,1])
-
-
-## identificacion GARCH ----
-
-# sobre los residuales al cuadrado
-
-eacf(base_residuales[,2]) # estructura ARMA(1,1),  ARMA(3,4)  o ARMA(4,4)
-                          # entonces:  GARCH(1,1), GARCH(4,3) o GARCH(4,4)
-                          # Se invierte, aunque es mas por experimentacion
-
-
-# sobre los residuales en valor absoluto
-
-eacf(base_residuales[,3]) # estructura ARMA(1,3) o  ARMA(3,4),  ARMA(2,6)
-                          # entonces:  GARCH(3,1) o GARCH(4,3), GARCH(6,2) 
-
-# Mensaje:
-# 1. El modelo ARCH(q) es GARCH(q,0) no hay componenete de volitidad rezagada en la regresion
-# 2. procesos GARCH mas grandes implican problemas de convergencia para la estimacion
-# 3. Si no son series muy problematicas un modelo GARCH(1,1) es suficiente
-# 4. para eacf se identifica el proceso ARMA(p,q) -> GARCH(q,p)
-
-
-
-## Especificacion estructuras GARCH ----
-
-# Asumiendo que media condicional es cero 
-# proceso ARCH(1) sobre los retornos log
-
-## modelo ARCH(1) ----
-spec0 <- ugarchspec(mean.model = list(armaOrder= c(0,0))
-                    ,variance.model = list(model='sGARCH'
-                                           , garchOrder= c(1,0)
-                                           )
-                    , distribution.model='norm')
-
-mod1a <- ugarchfit(spec = spec0,data = Base_modelo_dep_ts_dlx[,1])
-mod1a
-
-
-## modelo GARCH(1,1) ----
-### serie en retornos log ----
-
-# asumiendo que media condicional es cero
-
-spec1 <- ugarchspec(mean.model = list(armaOrder= c(0,0))
-                    ,variance.model = list(model='sGARCH'
-                                           , garchOrder= c(1,1))
-                    , distribution.model='norm')
-
-mod1b <- ugarchfit(spec = spec1,data = Base_modelo_dep_ts_dlx[,1])
-mod1b
-
-
-# Cambiando distribucion de la volatilidad (sigma)
-spec3 <- ugarchspec(mean.model = list(armaOrder= c(0,0))
-                    ,variance.model = list(model='sGARCH'
-                                           , garchOrder= c(1,1)
-                                           )
-                    , distribution.model='std')
-
-mod1c <- ugarchfit(spec = spec3,data = Base_modelo_dep_ts_dlx[,1])
-mod1c
-
-
-## modelo ARMA(1,2) + eGARCH(1,1) ----
-### serie en retornos log ----
-
-spec4 <- ugarchspec(mean.model = list(armaOrder= c(1,2))
-                    ,variance.model = list(model='eGARCH'
-                                           , garchOrder= c(2,3)
-                    )
-                    , distribution.model='std')
-
-mod2a <- ugarchfit(spec = spec4,data = Base_modelo_dep_ts_dlx[,1])
-mod2a
-
-windows()
-plot(mod2a, which='all')
-
-
-## modelo ARMA(2,2) + gjrGARCH(3,3) ----
-### serie en retornos log con exogenas ----
-
-spec5 <- ugarchspec(mean.model = list(armaOrder= c(2,2)
-                                      , external.regressors = Base_modelo_dep_ts_dlx[,-1] 
-                                      , archm = T)
-                    ,variance.model = list(model='sGARCH'
-                                           , garchOrder= c(3,3)
-                    )
-                    , distribution.model='sged')
-
-mod3a <- ugarchfit(spec = spec5,data = Base_modelo_dep_ts_dlx[,1])
-mod3a
-
-windows()
-plot(mod3a)
-
-
-
-## modelo ARMA-GARCH con exogenas para la media
-## modelo ARMA(0,1) + GARCH(4,3) con diferencia d=1 ----
-### serie en niveles log con exogenas ----
-
-spec6 <- ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(4, 3), 
-                                         submodel = NULL, external.regressors = NULL
-                                         , variance.targeting = FALSE), 
-                   mean.model = list(armaOrder = c(0, 1)
-                                     , external.regressors = Base_modelo_dep_ts_log[,c(-1,-5)]
-                                     , arfima = T
-                                     )
-                   ,fixed.pars = list(arfima = 1)
-                   ,distribution.model = "sstd")
-
-mod7a <- ugarchfit(spec=spec6,data=Base_modelo_dep_ts_log[,5]
-                      ,solver.control=list(tol = 1e-12 ))
-mod7a
-
-# Si se presentan problemas de convergencia en la estimacion se puede cambiar
-# la forma en que el algoritmo puede obtener la convergencia de los estimadores
-
-mod7b <- ugarchfit(spec=spec6,data=Base_modelo_dep_ts_log[,5]
-                   ,solver = "hybrid")
-mod7b
-
-
-
-# Refinamientos  ----
-## modelo ARMA(0,1) + eGARCH(6,2) con diferencia d=1 ----
-### serie en niveles log con exogenas ----
-
-spec7 <- ugarchspec(variance.model = list(model = "csGARCH", garchOrder = c(4, 3), 
-                                          submodel = NULL, external.regressors = NULL
-                                          , variance.targeting = FALSE
-                                          ), 
-                    mean.model = list(armaOrder = c(6, 3)
-                                      , external.regressors = Base_modelo_dep_ts_log[,c(-1,-5)]
-                                      , archm = T
-                                      , arfima = T
-                                      )
-                    , fixed.pars = list(arfima = 1) 
-                    , distribution.model = "std")
-
-mod7c <- ugarchfit(spec=spec7,data=Base_modelo_dep_ts_log[,5]
-                   ,solver = "hybrid")
-mod7c
-
-windows()
-plot(mod7c,which='all')
-
-# /------------------------------------------------------------------------  ---- 
-
-
-# Pronostico de modelos GARCH estimados ----
-
-## Modelo en retornos log 'mod1b' ----
-mod1b
-
-fore_mod1b <- ugarchforecast(fitORspec = mod1b
-                             , external.forecasts = list(mregfor = NULL
-                                                         , vregfor = NULL))
-fitted(fore_mod1b)  # pronostico Retorno
-sigma(fore_mod1b)   # pronostico volatilidad (sigma)
-
-windows()
-plot(fore_mod1b,which=1)
-
-
-
-## Modelo en retornos log 'mod3a' ----
-
-diff(log(Base_exo_pronos_ts))
-
-fore_mod3a <- ugarchforecast(fitORspec = mod3a, n.ahead = nrow(diff(log(Base_exo_pronos_ts)))
-                                              , out.sample = 15, n.roll = 0
-                                              , external.forecasts = list(mregfor = diff(log(Base_exo_pronos_ts))
-                                              , vregfor = NULL))
-fore_mod3a
-
-windows()
-plot(fore_mod3a,which=1)
-
-
-## Modelo en niveles log 'mod7b' ----
-mod7b
-
-fore_mod7b <- ugarchforecast(fitORspec = mod7b, n.ahead = nrow(log(Base_exo_pronos_ts))
-                             , out.sample = 15, n.roll = 0
-                             , external.forecasts = list(mregfor = log(Base_exo_pronos_ts)
-                                                         , vregfor = NULL))
-fore_mod7b
-
-windows()
-plot(fore_mod7b,which=1)
-
-
-## Modelo en niveles log 'mod7c' ----
-
-fore_mod7c <- ugarchforecast(fitORspec = mod7c, n.ahead = nrow(log(Base_exo_pronos_ts))
-                             , out.sample = 0, n.roll = 0
-                             , external.forecasts = list(mregfor = log(Base_exo_pronos_ts)
-                                                         , vregfor = list(beta3=0.170378)))
-fore_mod7c
-
-fitted(fore_mod7c)  # pronostico del nivel
-
-
-windows()
-plot(fore_mod7c,which=1)
-
-# obtener los niveles del indicador de la serie original
-exp(fitted(fore_mod7c))
 
 
 # /------------------------------------------------------------------------  ---- 
