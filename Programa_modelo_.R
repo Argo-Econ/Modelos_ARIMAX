@@ -15,7 +15,7 @@ p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
 # Importacion datos ----
 #------------------------------------------------------------------------------#
 Datos_ent1 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Acciones",range = "a4:bq406"
+                        ,sheet = "Actividad_Colombia",range = "a4:n229"
                         ,col_names = T)
 
 tail(Datos_ent1)
@@ -26,7 +26,7 @@ Datos_ent2 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
 tail(Datos_ent2)
 
 Datos_ent3 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Monedas",range = "a4:w286"
+                        ,sheet = "Monedas",range = "a4:w292"
                         ,col_names = T)
 
 tail(Datos_ent3)
@@ -36,8 +36,8 @@ tail(Datos_ent3)
 # Definicion de objetos de serie de tiempo ----
 #------------------------------------------------------------------------------#
 
-# Acciones - variables de interes
-Datos_ent1_ts1 <- ts(Datos_ent1[,-1],start = c(1990,1),frequency = 12)
+# Actividad comercio - variables de interes
+Datos_ent1_ts1 <- ts(Datos_ent1[,-1],start = c(2005,1),frequency = 12)
 Datos_ent1_ts2 <- xts(Datos_ent1[,-1]
                       ,order.by = as.Date(Datos_ent1$Fecha))
 
@@ -56,24 +56,24 @@ Datos_ent3_ts2 <- xts(Datos_ent3[,-c(1:3)]
 #------------------------------------------------------------------------------#
 
 # Objeto ts
-Base_modelo_ts <- ts.union(Datos_ent3_ts1[ , 1],Datos_ent2_ts1)
+Base_modelo_ts <- ts.union(Datos_ent1_ts1[,6],Datos_ent2_ts1)
 tail(Base_modelo_ts)
-colnames(Base_modelo_ts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
+colnames(Base_modelo_ts) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_ts)
 
-Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],19)
+Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],15)
 
 Base_modelo_dep_ts <- Base_modelo_ts %>% na.omit()
 head(Base_modelo_dep_ts)
 tail(Base_modelo_dep_ts)  
 
 # Base modelo con objetos xts (reto)
-Base_modelo_xts <- cbind.xts(Datos_ent3_ts2[,1],Datos_ent2_ts2)
+Base_modelo_xts <- cbind.xts(Datos_ent1_ts2$Comercio,Datos_ent2_ts2)
 tail(Base_modelo_xts)
-colnames(Base_modelo_xts) <- c("Colombia","Brent","IP_Index","IPC_EEUU")
+colnames(Base_modelo_xts) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_xts)
 
-Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],19)
+Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],15)
 
 Base_modelo_dep_xts <- Base_modelo_xts %>% na.omit()
 head(Base_modelo_dep_xts)
@@ -94,24 +94,24 @@ ts_plot(Base_modelo_dep_xts
         ,slider = T)
 
 # Comportamiento estacional de la variable objetivo
-ts_seasonal(Base_modelo_dep_xts$Colombia, type = "all")
-ts_cor(Base_modelo_dep_xts$Colombia, lag.max = 60) # con objetos xts no funciona
+ts_seasonal(Base_modelo_dep_xts$ISE_Comercio, type = "all")
+ts_cor(Base_modelo_dep_xts$ISE_Comercio, lag.max = 60) # con objetos xts no funciona
 ts_cor(Base_modelo_dep_ts[,1], lag.max = 60)    # funciona con objetos ts
 
 
 windows()
-tsdisplay(Base_modelo_dep_ts[,1], main = "Tasa de Cambio Peso-Dólar"
-          , xlab = "Fecha", ylab = "TRM")
+tsdisplay(Base_modelo_dep_ts[,1], main = "Actividad ISE Sector Comercio"
+          , xlab = "Fecha", ylab = "Indice ISE")
 
 ts_lags(Base_modelo_dep_ts[,1], lags = 1:18)
-ts_lags(Base_modelo_dep_xts$Colombia, lags = 1:18)
+ts_lags(Base_modelo_dep_xts$ISE_Comercio, lags = 1:18)
 
 adf.test(x = Base_modelo_dep_ts[,1],alternative = "stationary")
 
 ## Transformación Box-Cox ----
 #------------------------------------------------------------------------------#
 
-boxCox(lm(Base_modelo_dep_xts$Colombia~1),    # regresión var. de interes como regresor constante
+boxCox(lm(Base_modelo_dep_xts$ISE_Comercio~1),    # regresión var. de interes como regresor constante
        lambda = seq(-3, 3, 1/100), # secuencia de valores para lambda
        plotit = TRUE,  # Crear el emento grafico de contraste
        eps = 1/50,     # tolerancia sobre valor de lambda
@@ -119,7 +119,7 @@ boxCox(lm(Base_modelo_dep_xts$Colombia~1),    # regresión var. de interes como 
        ylab = "log-Likelihood",
        main ="Valor de lambda")
 
-lambda_colombia <- BoxCox.lambda(Base_modelo_dep_xts$Colombia, method = "loglik")
+lambda_ISE_Comercio <- BoxCox.lambda(Base_modelo_dep_xts$ISE_Comercio, method = "loglik")
 lambda_Brent <- BoxCox.lambda(Base_modelo_dep_xts$Brent, method = "loglik")
 lambda_IP_index <- BoxCox.lambda(Base_modelo_dep_xts$IP_Index, method = "loglik")
 lambda_IPC_EEUU <- BoxCox.lambda(Base_modelo_dep_xts$IPC_EEUU, method = "loglik")
@@ -129,18 +129,18 @@ lamdas_buff <- apply(Base_modelo_dep_xts, 2, function(x)  BoxCox.lambda(x,method
 
 
 # serie_transformada Box-Cox manual
-Colombia_BoxCox <- BoxCox(Base_modelo_dep_xts$Colombia,lambda = lamdas_buff[1])
+ISE_Comercio_BoxCox <- BoxCox(Base_modelo_dep_xts$ISE_Comercio,lambda = lamdas_buff[1])
 Brent_BoxCox <- BoxCox(Base_modelo_dep_xts$Brent,lambda = lambda_Brent)
 IP_Index_BoxCox <- BoxCox(Base_modelo_dep_xts$IP_Index,lambda = lambda_IP_index)
 IPC_EEUU_BoxCox <- BoxCox(Base_modelo_dep_xts$IPC_EEUU,lambda = lambda_IPC_EEUU)
 
-Base_modelo_dep_xts_BoxCox <- cbind.xts(Base_modelo_dep_xts,Colombia_BoxCox$Colombia
+Base_modelo_dep_xts_BoxCox <- cbind.xts(Base_modelo_dep_xts,ISE_Comercio_BoxCox
                                  ,Brent_BoxCox$Brent,IP_Index_BoxCox$IP_Index
                                  ,IPC_EEUU_BoxCox$IPC_EEUU)
 
 names(Base_modelo_dep_xts_BoxCox)
-colnames(Base_modelo_dep_xts_BoxCox) <- c("Colombia","Brent","IP_Index","IPC_EEUU"
-                                          ,"Colombia_BoxCox","Brent_BoxCox"
+colnames(Base_modelo_dep_xts_BoxCox) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU"
+                                          ,"ISE_Comercio_BoxCox","Brent_BoxCox"
                                           ,"IP_Index_BoxCox","IPC_EEUU_BoxCox")
 
 tail(Base_modelo_dep_xts_BoxCox)
@@ -162,8 +162,8 @@ ts_plot(Base_modelo_dep_xts_BoxCox)
 class(Base_modelo_dep_xts_bx)
 head(Base_modelo_dep_xts)
 
-f_ini <- as.Date("2000-01-01")
-f_end <- as.Date("2023-06-1")
+f_ini <- as.Date("2005-01-01")
+f_end <- as.Date("2023-09-1")
 fechas <- seq(f_ini, f_end, by = "month")
 
 Base_modelo_dep_xts_bx <- xts(Base_modelo_dep_xts_bx,order.by = fechas)
@@ -181,28 +181,28 @@ var(Base_modelo_dep_xts[,1])
 var(Base_modelo_dep_xts_bx[,1])
 
 # Comprobar que la serie se estacionaria (prueba de raiz unitaria)
-adf.test(Base_modelo_dep_xts[,1]) # sobre el indice de Colombia la H0 no se rechaza
-adf.test(Base_modelo_dep_xts_bx[,1]) # sobre chile boxcox h0 no se rechaza
+adf.test(Base_modelo_dep_xts[,1],k=0) # Sounds weird!!!! 
+adf.test(Base_modelo_dep_xts_bx[,1]) 
 
 
 # aplicar diferencias a la informacion
-Base_modelo_dep_xts_bx_diff <- Base_modelo_dep_xts_bx %>% diff() %>% na.omit()
+Base_modelo_dep_xts_bx_diff <- Base_modelo_dep_xts_bx %>% diff(.,lag = 1,differences = 1) %>% na.omit()
 tail(Base_modelo_dep_xts_bx_diff)
 
 
 # vuelvo a testear estacionariedad
-adf.test(Base_modelo_dep_xts_bx_diff[,1],k=1) # Se rechaza H0 -> serie estacionaria I(1)
+adf.test(Base_modelo_dep_xts_bx_diff[,1],k=0) # Se rechaza H0 -> serie estacionaria I(1)
                                               # se aplicó una diferencia, entonces d=1
 kpss.test(Base_modelo_dep_xts_bx_diff[,1]) # H0: serie estacionaria
 pp.test(Base_modelo_dep_xts_bx_diff[,1])   # H0: serie no estacionaria
 
-
+plot(Base_modelo_dep_xts_bx_diff[,1])
 ## Transformación retornos log ----
 # -----------------------------------------------------------------------------#
 
 Base_modelo_dep_ts_dlx <- Base_modelo_dep_ts %>% log() %>% diff()
-#Base_modelo_dep_ts_dlx <- diff(log(Base_modelo_dep_ts))
-
+Base_modelo_dep_ts_slx <- Base_modelo_dep_ts %>% log() %>% diff(.,differences = 1,lag = 12) # Retornos log. anuales
+ts_plot(Base_modelo_dep_ts_slx) 
 # probar estacionariedad
 adf.test(Base_modelo_dep_ts_dlx[,1])  # Rechaza H0
 kpss.test(Base_modelo_dep_ts_dlx[,1]) # No Rechaza H0
@@ -210,7 +210,7 @@ pp.test(Base_modelo_dep_ts_dlx[,1])   # Rechaza H0
 
 # -----------------------------------------------------------------------------#
 # 1. que puedo aplicar transformaciones BoxCox para estabilizar
-#    la varianza, y aplicar la diferencia para estabilizar 
+#    la varianza, y aplicar la oper. diferencia para estabilizar 
 #    la tendencia o media de la serie
 # 2. valor del parametro d=? es uno porque se aplicó una diferencia para
 #    convertir la serie en estacionaria
@@ -249,7 +249,7 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 
 # Conclusion:
 # 1. existen unos posibles candidatos a modelar
-#     MA(1) - ARMA(0,1) , ARMA(3,3), ARMA(8,6)
+#     ARMA(4,5) , ARMA(7,5), ARMA(0,6) -> MA(6)
 
 
 
@@ -257,7 +257,8 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 # -----------------------------------------------------------------------------#
 
 ## modelo 1 ----
-mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,1),method = "CSS")
+mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)
+              ,method = "ML")
 summary(mod1)
 lmtest::coeftest(mod1)
 
@@ -272,7 +273,7 @@ windows()
 prueba_residuales(mod1$residuals)
 
 ## modelo 2 ----
-mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,3), method = "CSS-ML")
+mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(7,0,5), method = "CSS-ML")
 summary(mod2)
 
 ### Chequeo mod2 ----
@@ -284,58 +285,50 @@ prueba_residuales(mod2$residuals)
 
 
 ## modelo 3 con exogenas ----
-mod2a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,3)
-              ,xreg = Base_modelo_dep_ts_dlx[,-1])
-summary(mod2a)
+mod3 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,6))
+summary(mod3)
 
-### Chequeo mod3 con exogenas ----
+mod3a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5),seasonal = c(1,1,1) )
+summary(mod3a)
+### Chequeo mod3 con diferencia estacional ----
 windows()
-checkresiduals(mod2a)
-
-windows()
-prueba_residuales(mod2a$residuals)
+checkresiduals(mod3a)
 
 
-## modelo 4 niveles y exogenas ----
-mod3b <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(3,1,3)    # ndiffs(log(Base_modelo_dep_ts[,1])) para saver que colocar en d c(x,d,x)
-              ,xreg = log(Base_modelo_dep_ts[,-1]))
+
+
+## modelo 3a con exogenas ----
+mod3b <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)
+              ,seasonal = c(1,1,1) 
+              ,xreg = log(Base_modelo_dep_ts_dlx[,-1]), method = "ML",optim.method = "L-BFGS-B")
 summary(mod3b)
-"ndiffs(log(Base_modelo_dep_ts[,1])) para saber que colocar en d c(x,d,x)"
-### Chequeo mod4 niveles y exogenas ----
-windows()
-checkresiduals(mod3b)
-
-windows()
-prueba_residuales(mod4$residuals)
 
 
-## modelo 4 ajuste manual ----
-mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]),order = c(6,1,8)
-              ,seasonal = c(0,0,0)    # Seasonal (P,D,Q)
-              ,xreg = log(Base_modelo_dep_ts[,-1]))
+### Modelo 4 en niveles log con exogenas ----
+mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]), order = c(4,1,5)
+              , seasonal = c(1,1,1)
+              , xreg = log(Base_modelo_dep_ts[,-1])
+              , method = "ML")
+
 summary(mod4)
 lmtest::coeftest(mod4)
-### Chequeo modelo 5 ajuste ----
-windows()
-checkresiduals(mod4)
-
-windows()
-prueba_residuales(mod4$residuals)
 
 
-## modelo 6 auto.arima en lx ----
-mod6 <- auto.arima(y = log(Base_modelo_dep_ts[,1])
-                   ,d = 1,max.order = 14,start.p = 2
+
+
+## Modelo 5 auto.arima en logaritmos ----
+mod5 <- auto.arima(y = log(Base_modelo_dep_ts[,1])
+                   ,d = 1,max.order = 10,start.p = 2
                    ,trace = T,stepwise = F
-                   ,xreg = log(Base_modelo_dep_ts[,-1]))
-summary(mod6)
+                   ,xreg = log(Base_modelo_dep_ts[,-1])
+                   ,approximation = T
+                   ,allowdrift = T
+                   ,allowmean = T)
+summary(mod5)
 
 ### Chequeo modelo auto.arima en lx ----
 windows()
-checkresiduals(mod6)
-
-windows()
-prueba_residuales(mod6$residuals)
+checkresiduals(mod5)
 
 
 # Mensaje,
@@ -356,10 +349,10 @@ prueba_residuales(mod6$residuals)
 
 ts_plot(log(Base_modelo_dep_ts[,1]))
 
-outliers_colombia <- tso((Base_modelo_dep_ts[,1])
-                    , types = c("TC", "AO", "LS") )
+outliers_ISE_Comercio <- tso((Base_modelo_dep_ts[,1])
+                            , types = c("TC", "AO", "LS") )
 windows()
-plot(outliers_colombia)
+plot(outliers_ISE_Comercio)
 
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
