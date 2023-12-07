@@ -298,9 +298,9 @@ checkresiduals(mod3a)
 
 
 ## modelo 3a con exogenas ----
-mod3b <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)
+mod3b <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)   # order = c(p,d,q)
               ,seasonal = c(1,1,1) 
-              ,xreg = log(Base_modelo_dep_ts_dlx[,-1]), method = "ML",optim.method = "L-BFGS-B")
+              ,xreg = Base_modelo_dep_ts_dlx[,-1])
 summary(mod3b)
 
 
@@ -356,7 +356,7 @@ plot(outliers_ISE_Comercio)
 
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
-tc[110] <- 1
+tc[184] <- 1
 
 # cambio de nivel
 ls <- stats::filter(tc, filter = 1, method = "recursive")
@@ -376,54 +376,47 @@ ts_plot(tc_all, title = "Cambio transitorio")
 
 
 # Outliers con serie de trabajo ----
-outliers_colombia
-outliers_colombia$outliers$coefhat
+outliers_ISE_Comercio
+outliers_ISE_Comercio$outliers$coefhat
 
 # Fechas en las que ocurrieron los outlier
-outliers_idx <- outliers_colombia$outliers$ind
+outliers_idx <- outliers_ISE_Comercio$outliers$ind
 
 # Creación de los outliers
 n <- length(Base_modelo_dep_ts[,1])
 outlier1_tc1 <- outliers("TC", outliers_idx[1])
-outlier2_tc2 <- outliers("LS", outliers_idx[2])
 
-outlier1_tc <- outliers.effects(outlier1_tc1, n)
-outlier2_tc <- outliers.effects(outlier2_tc2, n)
-
-# Unión de las series de outliers
-outliers_gral <- cbind(outlier1_tc,outlier2_tc)
-ts_plot(as.ts(outliers_gral), type="multiple")
 
 # Visualización de serie original y de la intervención
-comparativo <- cbind("Intervenida"=outliers_colombia$yadj,"Original"=(Base_modelo_dep_ts[,1]))
+comparativo <- cbind("Intervenida"=outliers_ISE_Comercio$yadj,"Original"=(Base_modelo_dep_ts[,1]))
 ts_plot(as.ts(comparativo))
 
 # /------ fin intervencion --------------------------------------------
 
 head(Base_modelo_dep_ts)
-Colombia_interv <- ts(outliers_colombia$yadj, start = c(2000,1)
-                   ,frequency = 12)
+ISE_Comercio_interv <- ts(outliers_ISE_Comercio$yadj, start = c(2005,1)
+                          ,frequency = 12)
 
-Base_modelo_dep_ts_log <- ts.union((Base_modelo_dep_ts),Colombia_interv)
+Base_modelo_dep_ts_log <- log(ts.union((Base_modelo_dep_ts),ISE_Comercio_interv))
 View(Base_modelo_dep_ts_log)
 
-colnames(Base_modelo_dep_ts_log) <- c("Colombia","Brent","IP_Index"
-                                      ,"IPC_EEUU","Colombia_interv")
+colnames(Base_modelo_dep_ts_log) <- c("ISE_Comercio","Brent","IP_Index"
+                                      ,"IPC_EEUU","ISE_Comercio_interv")
 
 
-## modelo 7 intervenida ----
-mod7 <- auto.arima(y = Base_modelo_dep_ts_log[,5]
+## modelo 6 intervenida ----
+mod6 <- auto.arima(y = Base_modelo_dep_ts_log[,5]
                    ,d = 1,max.order = 14,start.p = 2
                    ,trace = T,stepwise = F, allowdrift = F
                    ,xreg = Base_modelo_dep_ts_log[,c(-1,-5)])
-summary(mod7)
+summary(mod6)
 
 ### Chequeo modelo auto.arima en lx ----
 windows()
-checkresiduals(mod7)
+checkresiduals(mod6)
 
 windows()
-prueba_residuales(mod7$residuals)
+prueba_residuales(mod6$residuals)
 
 
 # Pronostico (Uso del modelos) -----
@@ -431,29 +424,18 @@ prueba_residuales(mod7$residuals)
 
 
 ## Pronosticos libres sin exogenas ----
-fore_mod1 <- forecast(mod1, h=19)
+fore_mod1 <- forecast(mod1, h=15)
 autoplot(fore_mod1)
 
-fore_mod2 <- forecast(mod2, h=19)
+fore_mod2 <- forecast(mod2, h=15)
 autoplot(fore_mod2)
 
 
 ## Pronosticos con exogenas ----
 Base_exo_pronos_ts
-fore_mod3 <- forecast(mod3, xreg = diff(log(Base_exo_pronos_ts)))
-autoplot(fore_mod3)
-
-fore_mod2a <- forecast(mod2a, xreg = log(Base_exo_pronos_ts))
-autoplot(fore_mod2a)
-
-fore_mod3b <- forecast(mod3b, xreg = log(Base_exo_pronos_ts))
+fore_mod3b <- forecast(mod3b, xreg = diff(log(Base_exo_pronos_ts)))
 autoplot(fore_mod3b)
 
-fore_mod4 <- forecast(mod4, xreg = log(Base_exo_pronos_ts))
-autoplot(fore_mod4)
-
-fore_mod7 <- forecast(mod7, xreg = log(Base_exo_pronos_ts))
-autoplot(fore_mod7)
 
 
 
