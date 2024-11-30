@@ -9,24 +9,24 @@ require(pacman) # library(pacman)
 
 p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
        , tseries, TSA, tsoutliers, GGally, xts, ggplot2, dplyr
-       , MASS, nortest, nortest, FinTS, rugarch, Metrics )
+       , MASS, nortest, FinTS, rugarch, Metrics)
 
 
 # Importacion datos ----
 #------------------------------------------------------------------------------#
 Datos_ent1 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Actividad_Colombia",range = "a4:n229"
+                        ,sheet = "Actividad_Colombia",range = "a4:n236"
                         ,col_names = T)
 
 tail(Datos_ent1)
 
 Datos_ent2 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Exogenas",range = "a3:d423"
+                        ,sheet = "Exogenas",range = "a3:d435"
                         ,col_names = T)
 tail(Datos_ent2)
 
 Datos_ent3 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Monedas",range = "a4:w292"
+                        ,sheet = "Monedas",range = "a4:w297"
                         ,col_names = T)
 
 tail(Datos_ent3)
@@ -61,7 +61,7 @@ tail(Base_modelo_ts)
 colnames(Base_modelo_ts) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_ts)
 
-Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],15)
+Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],19)
 
 Base_modelo_dep_ts <- Base_modelo_ts %>% na.omit()
 head(Base_modelo_dep_ts)
@@ -73,7 +73,7 @@ tail(Base_modelo_xts)
 colnames(Base_modelo_xts) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_xts)
 
-Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],15)
+Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],19)
 
 Base_modelo_dep_xts <- Base_modelo_xts %>% na.omit()
 head(Base_modelo_dep_xts)
@@ -81,7 +81,7 @@ tail(Base_modelo_dep_xts)
 
 
 
-# Identificación ----
+# 1. Identificación ----
 
 ## Elementos gráficos
 #------------------------------------------------------------------------------#
@@ -160,10 +160,10 @@ ts_plot(Base_modelo_dep_xts_BoxCox)
 
 # Se perdió el atributo de serie de tiempo al efectuar transformación optima
 class(Base_modelo_dep_xts_bx)
-head(Base_modelo_dep_xts)
+tail(Base_modelo_dep_xts)
 
 f_ini <- as.Date("2005-01-01")
-f_end <- as.Date("2023-09-1")
+f_end <- as.Date("2024-03-1")
 fechas <- seq(f_ini, f_end, by = "month")
 
 Base_modelo_dep_xts_bx <- xts(Base_modelo_dep_xts_bx,order.by = fechas)
@@ -197,12 +197,14 @@ kpss.test(Base_modelo_dep_xts_bx_diff[,1]) # H0: serie estacionaria
 pp.test(Base_modelo_dep_xts_bx_diff[,1])   # H0: serie no estacionaria
 
 plot(Base_modelo_dep_xts_bx_diff[,1])
+
 ## Transformación retornos log ----
 # -----------------------------------------------------------------------------#
 
 Base_modelo_dep_ts_dlx <- Base_modelo_dep_ts %>% log() %>% diff()
 Base_modelo_dep_ts_slx <- Base_modelo_dep_ts %>% log() %>% diff(.,differences = 1,lag = 12) # Retornos log. anuales
 ts_plot(Base_modelo_dep_ts_slx) 
+
 # probar estacionariedad
 adf.test(Base_modelo_dep_ts_dlx[,1])  # Rechaza H0
 kpss.test(Base_modelo_dep_ts_dlx[,1]) # No Rechaza H0
@@ -225,7 +227,6 @@ nsdiffs(Base_modelo_dep_ts[,1])
 
 windows()
 tsdisplay(Base_modelo_dep_ts_dlx[,1])
-# posible modelo AR=1
 
 
 grafico1 <- autoplot(Base_modelo_dep_ts[,1]) +ylab("indice")+xlab("fecha")
@@ -249,7 +250,7 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 
 # Conclusion:
 # 1. existen unos posibles candidatos a modelar
-#     ARMA(4,5) , ARMA(7,5), ARMA(0,6) -> MA(6)
+#     ARMA(4,5) , ARMA(6,4), ARMA(5,6) -> MA(6)
 
 
 
@@ -273,7 +274,7 @@ windows()
 prueba_residuales(mod1$residuals)
 
 ## modelo 2 ----
-mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(7,0,5), method = "CSS-ML")
+mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(6,0,4), method = "CSS-ML")
 summary(mod2)
 
 ### Chequeo mod2 ----
@@ -287,26 +288,29 @@ prueba_residuales(mod2$residuals)
 ## modelo 3 con exogenas ----
 mod3 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,6))
 summary(mod3)
-
+checkresiduals(mod3)
 mod3a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5),seasonal = c(1,1,1) )
 summary(mod3a)
 ### Chequeo mod3 con diferencia estacional ----
 windows()
 checkresiduals(mod3a)
 
+windows()
+prueba_residuales(mod3a$residuals)
+
 
 
 
 ## modelo 3a con exogenas ----
 mod3b <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)   # order = c(p,d,q)
-              ,seasonal = c(1,1,1) 
+              ,seasonal = c(1,1,1) # parte estacional (P,D,Q)
               ,xreg = Base_modelo_dep_ts_dlx[,-1])
 summary(mod3b)
 
 
 ### Modelo 4 en niveles log con exogenas ----
 mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]), order = c(4,1,5)
-              , seasonal = c(1,1,1)
+              , seasonal = c(0,1,1)
               , xreg = log(Base_modelo_dep_ts[,-1])
               , method = "ML")
 
@@ -353,7 +357,7 @@ outliers_ISE_Comercio <- tso((Base_modelo_dep_ts[,1])
                             , types = c("TC", "AO", "LS") )
 windows()
 plot(outliers_ISE_Comercio)
-
+outliers_ISE_Comercio$yadj
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
 tc[184] <- 1
@@ -362,7 +366,7 @@ tc[184] <- 1
 ls <- stats::filter(tc, filter = 1, method = "recursive")
 plot(ls)
 
-# pulso
+# Cambuio de nivel
 ao <- stats::filter(tc, filter = 0, method = "recursive")
 ts_plot(ao)
 
@@ -382,13 +386,14 @@ outliers_ISE_Comercio$outliers$coefhat
 # Fechas en las que ocurrieron los outlier
 outliers_idx <- outliers_ISE_Comercio$outliers$ind
 
-# Creación de los outliers
-n <- length(Base_modelo_dep_ts[,1])
-outlier1_tc1 <- outliers("TC", outliers_idx[1])
+# # Creación de los outliers
+# n <- length(Base_modelo_dep_ts[,1])
+# outlier1_tc1 <- outliers("TC", outliers_idx[1])
 
 
 # Visualización de serie original y de la intervención
-comparativo <- cbind("Intervenida"=outliers_ISE_Comercio$yadj,"Original"=(Base_modelo_dep_ts[,1]))
+comparativo <- cbind("Intervenida"=outliers_ISE_Comercio$yadj
+                     ,"Original"=(Base_modelo_dep_ts[,1]))
 ts_plot(as.ts(comparativo))
 
 # /------ fin intervencion --------------------------------------------
@@ -410,7 +415,7 @@ mod6 <- auto.arima(y = Base_modelo_dep_ts_log[,5]
                    ,trace = T,stepwise = F, allowdrift = F
                    ,xreg = Base_modelo_dep_ts_log[,c(-1,-5)])
 summary(mod6)
-
+lmtest::coeftest(mod6)
 ### Chequeo modelo auto.arima en lx ----
 windows()
 checkresiduals(mod6)
@@ -419,15 +424,16 @@ windows()
 prueba_residuales(mod6$residuals)
 
 
+
 # Pronostico (Uso del modelos) -----
 # -----------------------------------------------------------------------------#
 
 
 ## Pronosticos libres sin exogenas ----
-fore_mod1 <- forecast(mod1, h=15)
+fore_mod1 <- forecast(mod1, h=21)
 autoplot(fore_mod1)
 
-fore_mod2 <- forecast(mod2, h=15)
+fore_mod2 <- forecast(mod2, h=21)
 autoplot(fore_mod2)
 
 
@@ -436,8 +442,21 @@ Base_exo_pronos_ts
 fore_mod3b <- forecast(mod3b, xreg = diff(log(Base_exo_pronos_ts)))
 autoplot(fore_mod3b)
 
+# pronos mod en niveles
+fore_mod4 <- forecast(object = mod4,h = 21,level = c(60,70,90)
+                      ,xreg = log(Base_exo_pronos_ts))
+fore_mod4
+windows()
+autoplot(fore_mod4)
 
+names(fore_mod4)
+fore_mod4 <- fore_mod4$mean %>% as.data.frame() %>% exp()
 
+# pronos mod6
+fore_mod6 <- forecast(object = mod6, xreg = log(Base_exo_pronos_ts))
+
+windows()
+autoplot(fore_mod6)
 
 # /------------------------------------------------------------------------  ---- 
 # Final de programa ----
