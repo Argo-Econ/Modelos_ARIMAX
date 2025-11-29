@@ -1,13 +1,13 @@
-#------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
 # Desarrollo de la met. Box Jenkings ----
 ## Modelos ARIMA media condicional
 ## Arturo Yesid Gonzalez ----
-# ***************************************************************************** ----
+# ------------------------------------------------------------------------------#
 
-# carga de librerias (funciones para el desarrollo practico)
+# carga de librerias
 require(pacman) # library(pacman)
 
-p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
+pacman::p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
        , tseries, TSA, tsoutliers, GGally, xts, ggplot2, dplyr
        , MASS, nortest, FinTS, rugarch, Metrics)
 
@@ -15,13 +15,13 @@ p_load(readxl, sandwich, car, lmtest, TSstudio, lmtest, forecast
 # Importacion datos ----
 #------------------------------------------------------------------------------#
 Datos_ent1 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Actividad_Colombia",range = "a4:n236"
+                        ,sheet = "Actividad_Colombia",range = "a4:n247"
                         ,col_names = T)
 
 tail(Datos_ent1)
 
 Datos_ent2 <- read_xlsx(path = "Datos_ent/Bases_Modelos_ARIMA.xlsx"
-                        ,sheet = "Exogenas",range = "a3:d435"
+                        ,sheet = "Exogenas",range = "a3:d447"
                         ,col_names = T)
 tail(Datos_ent2)
 
@@ -37,6 +37,7 @@ tail(Datos_ent3)
 #------------------------------------------------------------------------------#
 
 # Actividad comercio - variables de interes
+names(Datos_ent1)
 Datos_ent1_ts1 <- ts(Datos_ent1[,-1],start = c(2005,1),frequency = 12)
 Datos_ent1_ts2 <- xts(Datos_ent1[,-1]
                       ,order.by = as.Date(Datos_ent1$Fecha))
@@ -63,7 +64,7 @@ View(Base_modelo_ts)
 
 Base_exo_pronos_ts <- tail(Base_modelo_ts[,-1],19)
 
-Base_modelo_dep_ts <- Base_modelo_ts %>% na.omit()
+Base_modelo_dep_ts <- Base_modelo_ts |> na.omit()
 head(Base_modelo_dep_ts)
 tail(Base_modelo_dep_ts)  
 
@@ -73,7 +74,7 @@ tail(Base_modelo_xts)
 colnames(Base_modelo_xts) <- c("ISE_Comercio","Brent","IP_Index","IPC_EEUU")
 View(Base_modelo_xts)
 
-Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],19)
+Base_exo_pronos_xts <- tail(Base_modelo_xts[,-1],15)
 
 Base_modelo_dep_xts <- Base_modelo_xts %>% na.omit()
 head(Base_modelo_dep_xts)
@@ -97,7 +98,7 @@ ts_plot(Base_modelo_dep_xts
 ts_seasonal(Base_modelo_dep_xts$ISE_Comercio, type = "all")
 ts_cor(Base_modelo_dep_xts$ISE_Comercio, lag.max = 60) # con objetos xts no funciona
 ts_cor(Base_modelo_dep_ts[,1], lag.max = 60)    # funciona con objetos ts
-
+ts_lags(Base_modelo_dep_ts[,1])
 
 windows()
 tsdisplay(Base_modelo_dep_ts[,1], main = "Actividad ISE Sector Comercio"
@@ -106,7 +107,7 @@ tsdisplay(Base_modelo_dep_ts[,1], main = "Actividad ISE Sector Comercio"
 ts_lags(Base_modelo_dep_ts[,1], lags = 1:18)
 ts_lags(Base_modelo_dep_xts$ISE_Comercio, lags = 1:18)
 
-adf.test(x = Base_modelo_dep_ts[,1],alternative = "stationary")
+adf.test(x = Base_modelo_dep_ts[,1],alternative = "stationary") # Ojo complementar con otras pruebas de estacionariedad
 
 ## Transformación Box-Cox ----
 #------------------------------------------------------------------------------#
@@ -163,11 +164,11 @@ class(Base_modelo_dep_xts_bx)
 tail(Base_modelo_dep_xts)
 
 f_ini <- as.Date("2005-01-01")
-f_end <- as.Date("2024-03-1")
+f_end <- as.Date("2025-03-1")
 fechas <- seq(f_ini, f_end, by = "month")
 
 Base_modelo_dep_xts_bx <- xts(Base_modelo_dep_xts_bx,order.by = fechas)
-tail(Base_modelo_dep_xts_bx)
+class(Base_modelo_dep_xts_bx)
 
 ts_plot(Base_modelo_dep_xts_bx
         ,type = "multiple"
@@ -181,12 +182,12 @@ var(Base_modelo_dep_xts[,1])
 var(Base_modelo_dep_xts_bx[,1])
 
 # Comprobar que la serie se estacionaria (prueba de raiz unitaria)
-adf.test(Base_modelo_dep_xts[,1],k=0) # Sounds weird!!!! 
+adf.test(Base_modelo_dep_xts[,1]) # Sounds weird!!!! 
 adf.test(Base_modelo_dep_xts_bx[,1]) 
 
 
 # aplicar diferencias a la informacion
-Base_modelo_dep_xts_bx_diff <- Base_modelo_dep_xts_bx %>% diff(.,lag = 1,differences = 1) %>% na.omit()
+Base_modelo_dep_xts_bx_diff <- Base_modelo_dep_xts_bx |> diff(lag = 1,differences = 1) %>% na.omit()
 tail(Base_modelo_dep_xts_bx_diff)
 
 
@@ -203,9 +204,9 @@ plot(Base_modelo_dep_xts_bx_diff[,1])
 
 Base_modelo_dep_ts_dlx <- Base_modelo_dep_ts %>% log() %>% diff()
 Base_modelo_dep_ts_slx <- Base_modelo_dep_ts %>% log() %>% diff(.,differences = 1,lag = 12) # Retornos log. anuales
-ts_plot(Base_modelo_dep_ts_slx) 
+ts_plot(Base_modelo_dep_ts_dlx) 
 
-# probar estacionariedad
+# probar estacionariedad - ret log mensuales (dlx)
 adf.test(Base_modelo_dep_ts_dlx[,1])  # Rechaza H0
 kpss.test(Base_modelo_dep_ts_dlx[,1]) # No Rechaza H0
 pp.test(Base_modelo_dep_ts_dlx[,1])   # Rechaza H0
@@ -218,8 +219,8 @@ pp.test(Base_modelo_dep_ts_dlx[,1])   # Rechaza H0
 #    convertir la serie en estacionaria
 
 # atajo tanto para diferencias directas como diferencias estacionales
-ndiffs(Base_modelo_dep_ts[,1]) # el numero d para colocarlo en el modelo ARIMA(p,d,q)
-nsdiffs(Base_modelo_dep_ts[,1])
+ndiffs(Base_modelo_dep_ts[,1]) # el numero "d" para colocarlo en el modelo ARIMA(p,d,q)
+nsdiffs(Base_modelo_dep_ts[,1]) # esta instrucción me entrega el "D" de la parte estacional
 
 # -----------------------------------------------------------#
 # Segundo paso en la identificacion (graficos de FAC y PACF)
@@ -245,12 +246,12 @@ gridExtra::grid.arrange(grafico1,grafico3
                         ,grafico5,grafico6,
                         ncol=3)
 
-eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
+eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 12, ma.max = 12)
 
 
 # Conclusion:
 # 1. existen unos posibles candidatos a modelar
-#     ARMA(4,5) , ARMA(6,4), ARMA(5,6) -> MA(6)
+#     ARMA(3,6) , ARMA(4,6), ARMA(4,5)
 
 
 
@@ -258,7 +259,7 @@ eacf(Base_modelo_dep_ts_dlx[,1],ar.max = 10, ma.max = 10)
 # -----------------------------------------------------------------------------#
 
 ## modelo 1 ----
-mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)
+mod1 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(3,0,6)
               ,method = "ML")
 summary(mod1)
 lmtest::coeftest(mod1)
@@ -274,7 +275,7 @@ windows()
 prueba_residuales(mod1$residuals)
 
 ## modelo 2 ----
-mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(6,0,4), method = "CSS-ML")
+mod2 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,6), method = "CSS-ML")
 summary(mod2)
 
 ### Chequeo mod2 ----
@@ -285,11 +286,12 @@ windows()
 prueba_residuales(mod2$residuals)
 
 
-## modelo 3 con exogenas ----
-mod3 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(0,0,6))
+## modelo 3 ----
+mod3 <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5))
 summary(mod3)
 checkresiduals(mod3)
-mod3a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5),seasonal = c(1,1,1) )
+mod3a <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5),seasonal = c(1,1,1),
+               method = "ML")
 summary(mod3a)
 ### Chequeo mod3 con diferencia estacional ----
 windows()
@@ -301,12 +303,12 @@ prueba_residuales(mod3a$residuals)
 
 
 
-## modelo 3a con exogenas ----
+## modelo 3b con exogenas ----
 mod3b <- Arima(y = Base_modelo_dep_ts_dlx[,1],order = c(4,0,5)   # order = c(p,d,q)
               ,seasonal = c(1,1,1) # parte estacional (P,D,Q)
               ,xreg = Base_modelo_dep_ts_dlx[,-1])
 summary(mod3b)
-
+checkresiduals(mod3b)
 
 ### Modelo 4 en niveles log con exogenas ----
 mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]), order = c(4,1,5)
@@ -316,20 +318,20 @@ mod4 <- Arima(y = log(Base_modelo_dep_ts[,1]), order = c(4,1,5)
 
 summary(mod4)
 lmtest::coeftest(mod4)
-
+checkresiduals(mod4)
 
 
 
 ## Modelo 5 auto.arima en logaritmos ----
 mod5 <- auto.arima(y = log(Base_modelo_dep_ts[,1])
-                   ,d = 1,max.order = 10,start.p = 2
+                   ,d = 1,max.order = 7,start.p = 2
                    ,trace = T,stepwise = F
                    ,xreg = log(Base_modelo_dep_ts[,-1])
                    ,approximation = T
                    ,allowdrift = T
                    ,allowmean = T)
 summary(mod5)
-
+lmtest::coeftest(mod5)
 ### Chequeo modelo auto.arima en lx ----
 windows()
 checkresiduals(mod5)
@@ -360,7 +362,7 @@ plot(outliers_ISE_Comercio)
 outliers_ISE_Comercio$yadj
 ## Ejemplos outliers ----
 tc <- rep(0, nrow(log(Base_modelo_dep_ts)))
-tc[184] <- 1
+tc[183] <- 1
 
 # cambio de nivel
 ls <- stats::filter(tc, filter = 1, method = "recursive")
@@ -433,7 +435,7 @@ prueba_residuales(mod6$residuals)
 fore_mod1 <- forecast(mod1, h=21)
 autoplot(fore_mod1)
 
-fore_mod2 <- forecast(mod2, h=21)
+fore_mod2 <- forecast(mod2, h=100)
 autoplot(fore_mod2)
 
 
@@ -443,7 +445,7 @@ fore_mod3b <- forecast(mod3b, xreg = diff(log(Base_exo_pronos_ts)))
 autoplot(fore_mod3b)
 
 # pronos mod en niveles
-fore_mod4 <- forecast(object = mod4,h = 21,level = c(60,70,90)
+fore_mod4 <- forecast(object = mod4,h = 14,level = c(60,70,90)
                       ,xreg = log(Base_exo_pronos_ts))
 fore_mod4
 windows()
@@ -451,6 +453,13 @@ autoplot(fore_mod4)
 
 names(fore_mod4)
 fore_mod4 <- fore_mod4$mean %>% as.data.frame() %>% exp()
+
+# pronos mod6
+fore_mod5 <- forecast(object = mod5, xreg = log(Base_exo_pronos_ts))
+
+windows()
+autoplot(fore_mod5)
+
 
 # pronos mod6
 fore_mod6 <- forecast(object = mod6, xreg = log(Base_exo_pronos_ts))

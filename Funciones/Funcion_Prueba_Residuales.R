@@ -7,7 +7,7 @@
 
 # Paquetes requeridos:
 # FinTS
-# nortest
+# nortest 
 # 
 
 prueba_residuales<-function(ts,alpha=0.05){
